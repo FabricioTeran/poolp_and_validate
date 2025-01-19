@@ -85,8 +85,8 @@ ReturnT val(FuncT func, VALIDATE_FUNC returnValidateFunc, const char* skipArgVal
     return res;
 }
 
-template <typename FuncT, typename ReturnT, class... ArgsT>
-ReturnT valTemp(FuncT call, VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, ArgsT... args) {
+template <class FuncT, class... ArgsT>
+FuncT valTemp(FuncT call, VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, ArgsT... args) {
     validateArgs(id, args...) //Falta implementar skipArgValidate
 
     valExp(call, returnValidateFunc, id);
