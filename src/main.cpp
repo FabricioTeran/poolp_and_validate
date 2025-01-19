@@ -74,19 +74,19 @@ void validateArgs(const char* id, FirstT first, RestT... rest) {
     validateArgs(id, rest...);
 }
 
-template <typename ReturnT, typename FuncT, typename... ArgsT>
-ReturnT val(FuncT func, VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, ArgsT... args) {
-    validateArgs(id, args...) //Falta implementar skipArgValidate
+template <typename FuncT, typename... ArgsT> //Para declarar templates que devuelven cualquier tipo usamos auto
+auto val(VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, FuncT func, ArgsT... args) {
+    validateArgs(id, args...); //Falta implementar skipArgValidate
 
-    ReturnT res = func(args...);
+    invoke_result_t<FuncT> res = func(args...);
 
     valExp(res, returnValidateFunc, id);
 
     return res;
 }
 
-template <class FuncT, class... ArgsT>
-FuncT valTemp(FuncT call, VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, ArgsT... args) {
+template <class FuncT, class... ArgsT> //Si las funciones a validar son templates, es muy dificil crear una funcion template que acepte otros templates, ademas tendriamos que definir una nueva funcion para cada nuevo template usado, entonces es mejor llamar la funcion desde afuera y que esta funcion solo tome el resultado
+FuncT valTemp(VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, FuncT call, ArgsT... args) {
     validateArgs(id, args...) //Falta implementar skipArgValidate
 
     valExp(call, returnValidateFunc, id);
@@ -119,21 +119,18 @@ vector<BYTE> queryInfo(HANDLE hProcess, TFunc queryFunc, TInfoClass processInfoC
 }
 
 HANDLE hijackProcessHandle(wstring wsObjectType, HANDLE hTarget, DWORD dwDesiredAccess) {
-	vector<BYTE> pProcessInfo = valTemp(
-                                    queryInfo(hTarget, NtQueryInformationProcess, ProcessHandleInformation),
-                                    NO_CHECK,
-                                    "",
-                                    "2.5",
-                                    hTarget, 
-                                    NtQueryInformationProcess, 
-                                    ProcessHandleInformation);
+	vector<BYTE> pProcessInfo = valTemp(NO_CHECK, "", "2.5",
+                                        queryInfo(hTarget, NtQueryInformationProcess, ProcessHandleInformation),
+                                        hTarget, NtQueryInformationProcess, ProcessHandleInformation);
     const auto pProcessHandleInfo = valExp((PPROCESS_HANDLE_SNAPSHOT_INFORMATION)(pProcessInfo.data()),
                                            CHECK_BAD_PTR, "3"); //BAD_PTR(pProcessHandleInfo, "3");
 
     for (auto i = 0; i < pProcessHandleInfo->NumberOfHandles; i++) {   //Se ejecuta mientras el iterador sea menor que el numero de handles del proceso
         HANDLE hDuplicatedObj;
         //Eliminamos comprobacion en pProcessHandleInfo->Handles[i].HandleValue
-        BOOL res = DuplicateHandle(hTarget, pProcessHandleInfo->Handles[i].HandleValue, GetCurrentProcess(), &hDuplicatedObj, dwDesiredAccess, FALSE, NULL);      RAISE_FALSE_NULL(res, "2") //Funcion nativa para dupicar handles. Le pasa el handle del proceso a copiarle. Le pasa el handle value del handle a copiar. Le pasa el handle del proceso actual. Le pasa el nivel de acceso y los ultimos dos parametros FALSE y NULL
+        BOOL res = val(CHECK_FALSE_NULL, "", "2",
+                       DuplicateHandle,
+                       hTarget, pProcessHandleInfo->Handles[i].HandleValue, GetCurrentProcess(), &hDuplicatedObj, dwDesiredAccess, FALSE, NULL);      //RAISE_FALSE_NULL(res, "2") //Funcion nativa para dupicar handles. Le pasa el handle del proceso a copiarle. Le pasa el handle value del handle a copiar. Le pasa el handle del proceso actual. Le pasa el nivel de acceso y los ultimos dos parametros FALSE y NULL
 
         vector<BYTE> pObjectInfo = queryInfo(hDuplicatedObj, NtQueryObject, ObjectTypeInformation); //Recupera informacion del handle recien copiado
         auto pObjectTypeInfo = (PPUBLIC_OBJECT_TYPE_INFORMATION)(pObjectInfo.data());      BAD_PTR(pObjectTypeInfo, "7");  //Accede a los datos crudos del handle recien copiado
