@@ -39,7 +39,7 @@ enum VALIDATE_FUNC {
     NO_CHECK
 };
 template <typename ArgT>
-ArgT valExp(ArgT expression, VALIDATE_FUNC validateFunc, const char* id) {
+ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression) {
     if (validateFunc == CHECK_FALSE_NULL &&
         !expression) { //Solo funciona si la func retorna BOOL o bool
         cout << "\nFalse or Null Value: " << expression << ", id: " << id << ", GetLastError: " << std::dec << GetLastError();
@@ -80,16 +80,16 @@ auto val(VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const ch
 
     invoke_result_t<FuncT> res = func(args...);
 
-    valExp(res, returnValidateFunc, id);
+    valExp(returnValidateFunc, id, res);
 
     return res;
 }
 
 template <class FuncT, class... ArgsT> //Si las funciones a validar son templates, es muy dificil crear una funcion template que acepte otros templates, ademas tendriamos que definir una nueva funcion para cada nuevo template usado, entonces es mejor llamar la funcion desde afuera y que esta funcion solo tome el resultado
 FuncT valTemp(VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, FuncT call, ArgsT... args) {
-    validateArgs(id, args...) //Falta implementar skipArgValidate
+    validateArgs(id, args...); //Falta implementar skipArgValidate
 
-    valExp(call, returnValidateFunc, id);
+    valExp(returnValidateFunc, id, call);
 
     return res;
 }
@@ -122,8 +122,8 @@ HANDLE hijackProcessHandle(wstring wsObjectType, HANDLE hTarget, DWORD dwDesired
 	vector<BYTE> pProcessInfo = valTemp(NO_CHECK, "", "2.5",
                                         queryInfo(hTarget, NtQueryInformationProcess, ProcessHandleInformation),
                                         hTarget, NtQueryInformationProcess, ProcessHandleInformation);
-    const auto pProcessHandleInfo = valExp((PPROCESS_HANDLE_SNAPSHOT_INFORMATION)(pProcessInfo.data()),
-                                           CHECK_BAD_PTR, "3"); //BAD_PTR(pProcessHandleInfo, "3");
+    const auto pProcessHandleInfo = valExp(CHECK_BAD_PTR, "3",
+                                           (PPROCESS_HANDLE_SNAPSHOT_INFORMATION)(pProcessInfo.data()) ); //BAD_PTR(pProcessHandleInfo, "3");
 
     for (auto i = 0; i < pProcessHandleInfo->NumberOfHandles; i++) {   //Se ejecuta mientras el iterador sea menor que el numero de handles del proceso
         HANDLE hDuplicatedObj;
