@@ -3,13 +3,13 @@
 #include<phnt.h>
 #include<iostream>
 #include<vector>
+#include <type_traits>
 #pragma comment(lib, "ntdll")
 
 using namespace std;
-#define RAISE_FALSE_NULL(val, id) if (!val) { cout << "\nFalse or Null Value: " << val << " id: " << id << " GetLastError: " << std::dec << GetLastError(); abort(); }
-#define NTSTATUS_CHECK(status, id) if(!NT_SUCCESS(status)) { cout << "\nError: " << id << ", NTSTATUS: " << status; abort(); }
+
 template <typename TReturn>
-TReturn BAD_PTR(TReturn ptr, const char* id) {
+bool BAD_PTR(TReturn ptr) {
     MEMORY_BASIC_INFORMATION mbi = { 0 };
     bool b;
     void* p = (void*)ptr;
@@ -20,16 +20,78 @@ TReturn BAD_PTR(TReturn ptr, const char* id) {
         if (mbi.Protect & (PAGE_GUARD | PAGE_NOACCESS)) b = true;
 
         if (b) {
-            cout << "\nBad Pointer:" << ptr << "  id:" << id << "  GetLastError:" << std::dec << GetLastError(); //Usamos std::dec para convertir la DWORD de GetLastError en decimal, los errores documentados en msdn estan en decimal (y hexadecimal entre parentesis)
-            abort();
+            return false;
         }
         else {
-            return ptr;
+            return true;
         }
     }
 
-    cout << "\nBAD_PTR: VirtualQuery no funciono en:" << ptr << "  id: " << id;
-    abort();
+    cout << "\nBAD_PTR: VirtualQuery no funciono en:" << ptr;
+    return false;
+}
+
+enum VALIDATE_FUNC {
+    CHECK_FALSE_NULL,
+    CHECK_NTSTATUS_CHECK,
+    CHECK_BAD_PTR,
+    CHECK_HANDLE,
+    NO_CHECK
+};
+template <typename ArgT>
+ArgT valExp(ArgT expression, VALIDATE_FUNC validateFunc, const char* id) {
+    if (validateFunc == CHECK_FALSE_NULL &&
+        !expression) { //Solo funciona si la func retorna BOOL o bool
+        cout << "\nFalse or Null Value: " << expression << ", id: " << id << ", GetLastError: " << std::dec << GetLastError();
+        abort();
+    }
+    else if (validateFunc == CHECK_NTSTATUS &&
+             !NT_SUCESS(expression)) {
+        cout << "\nNTSTATUS: " << expression << ", id: " << id;
+        abort();
+    }
+    else if (validateFunc == CHECK_BAD_PTR &&
+             BAD_PTR(expression)) {
+        cout << "\nBad-Pointer:" << ptr << ",  GetLastError:" << std::dec << GetLastError(); //Usamos std::dec para convertir la DWORD de GetLastError en decimal, los errores documentados en msdn estan en decimal (y hexadecimal entre parentesis)
+    }
+    else if (validateFunc == CHECK_HANDLE) {
+
+    }
+
+    return expression;
+}
+
+void validateArgs() {}
+template <typename FirstT, typename... RestT>
+void validateArgs(const char* id, FirstT first, RestT... rest) {
+    if (typeid(first) == typeid(HANDLE)) {
+        valExp(first, CHECK_HANDLE, id);
+    }
+    else if (is_pointer_v<FirstT>) {
+        valExp(first, CHECK_BAD_PTR, id);
+    }
+
+    validateArgs(id, rest...);
+}
+
+template <typename ReturnT, typename FuncT, typename... ArgsT>
+ReturnT val(FuncT func, VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, ArgsT... args) {
+    validateArgs(id, args...) //Falta implementar skipArgValidate
+
+    ReturnT res = func(args...);
+
+    valExp(res, returnValidateFunc, id);
+
+    return res;
+}
+
+template <typename FuncT, typename ReturnT, class... ArgsT>
+ReturnT valTemp(FuncT call, VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, ArgsT... args) {
+    validateArgs(id, args...) //Falta implementar skipArgValidate
+
+    valExp(call, returnValidateFunc, id);
+
+    return res;
 }
 
 
@@ -51,14 +113,22 @@ vector<BYTE> queryInfo(HANDLE hProcess, TFunc queryFunc, TInfoClass processInfoC
 		Ntstatus = queryFunc(hProcess, processInfoClass, Information.data(), InformationLength, &InformationLength);  //Simplemente llama a la funcion NtQueryInformationProcess, no se porque puso la funcion como parametro.  Envia la direccion de la InformationLength modificar su tamano
 	} while (STATUS_INFO_LENGTH_MISMATCH == Ntstatus); //Ejecuta el bucle mientras no se recupere la info del proceso
 
-	NTSTATUS_CHECK(Ntstatus, "1")
+    valExp(Ntstatus, CHECK_NTSTATUS, "1");
 
 	return Information;
 }
 
 HANDLE hijackProcessHandle(wstring wsObjectType, HANDLE hTarget, DWORD dwDesiredAccess) {
-	vector<BYTE> pProcessInfo = queryInfo(hTarget, NtQueryInformationProcess, ProcessHandleInformation);
-	const auto pProcessHandleInfo = (PPROCESS_HANDLE_SNAPSHOT_INFORMATION)(pProcessInfo.data());      BAD_PTR(pProcessHandleInfo, "3");
+	vector<BYTE> pProcessInfo = valTemp(
+                                    queryInfo(hTarget, NtQueryInformationProcess, ProcessHandleInformation),
+                                    NO_CHECK,
+                                    "",
+                                    "2.5",
+                                    hTarget, 
+                                    NtQueryInformationProcess, 
+                                    ProcessHandleInformation);
+    const auto pProcessHandleInfo = valExp((PPROCESS_HANDLE_SNAPSHOT_INFORMATION)(pProcessInfo.data()),
+                                           CHECK_BAD_PTR, "3"); //BAD_PTR(pProcessHandleInfo, "3");
 
     for (auto i = 0; i < pProcessHandleInfo->NumberOfHandles; i++) {   //Se ejecuta mientras el iterador sea menor que el numero de handles del proceso
         HANDLE hDuplicatedObj;
