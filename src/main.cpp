@@ -31,6 +31,7 @@ bool BAD_PTR(TReturn ptr) {
     return false;
 }
 
+//Tambien podria usar overloading
 enum VALIDATE_FUNC {
     CHECK_FALSE_NULL,
     CHECK_NTSTATUS,
@@ -38,27 +39,26 @@ enum VALIDATE_FUNC {
     CHECK_HANDLE,
     NO_CHECK
 };
-template <typename ArgT>
+template <class ArgT>
 ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression) {
-    if (validateFunc == CHECK_FALSE_NULL && 
-        (typeid(expression) == typeid(bool) ||
-         typeid(expression) == typeid(BOOL))) { //Solo funciona si la func retorna BOOL o bool
-        if (!expression) {
-            cout << "\nFalse or Null Value: " << expression << ", id: " << id << ", GetLastError: " << std::dec << GetLastError();
+    if (validateFunc == CHECK_FALSE_NULL) {
+        void* helper = &expression; //expression se guarda en el parametro de la funcion, tomamos su ubicacion y luego casteamos esa ubicacion
+        if (!(bool)helper) {        //Es la misma tecnica usada en hacking para castear estructuras en tiempo de ejecucion
+            cout << "\nFalse or Null Value: " << (bool)helper << ", id: " << id << ", GetLastError: " << std::dec << GetLastError();
             abort();
         }
     }
-    else if (validateFunc == CHECK_NTSTATUS &&
-             typeid(expression) == typeid(NTSTATUS)) {
-        if (!NT_SUCCESS(expression)) {
-            cout << "\nNTSTATUS: " << expression << ", id: " << id;
+    else if (validateFunc == CHECK_NTSTATUS) {
+        void* helper = &expression;
+        if (!NT_SUCCESS((NTSTATUS)helper)) {
+            cout << "\nNTSTATUS: " << (NTSTATUS)helper << ", id: " << id;
             abort();
         }
     }
-    else if (validateFunc == CHECK_BAD_PTR &&
-             is_pointer_v<ArgT>) {
-        if (BAD_PTR(expression)) {
-            cout << "\nBad-Pointer:" << expression << ",  GetLastError:" << std::dec << GetLastError(); //Usamos std::dec para convertir la DWORD de GetLastError en decimal, los errores documentados en msdn estan en decimal (y hexadecimal entre parentesis)
+    else if (validateFunc == CHECK_BAD_PTR) {
+        void* helper = &expression;
+        if (BAD_PTR(helper)) {
+            cout << "\nBad-Pointer:" << helper << ",  id:" << id << ",  GetLastError:" << std::dec << GetLastError(); //Usamos std::dec para convertir la DWORD de GetLastError en decimal, los errores documentados en msdn estan en decimal (y hexadecimal entre parentesis)
             abort();
         }
     }
@@ -69,17 +69,26 @@ ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression) {
     return expression;
 }
 
-void validateArgs() {}
-template <typename FirstT, typename... RestT>
-void validateArgs(const char* id, FirstT first, RestT... rest) {
-    if (typeid(first) == typeid(HANDLE)) {
-        valExp<HANDLE>(first, CHECK_HANDLE, id);
-    }
-    else if (is_pointer_v<FirstT>) {
-        valExp<FirstT>(first, CHECK_BAD_PTR, id);
-    }
-
-    validateArgs(id, rest...);
+template <typename... RestT>
+void validateArgs(const char* id, RestT... rest) {
+    //No podemos usar vectores porque no hay vectores que acepten diferentes tipos para sus elementos
+    //Tampoco podemos usar tuplas porque no se pueden iterar en tiempo de ejecucion
+    //void* vec[sizeof...(RestT)] = { &rest... }; Con esto perdemos los tipos de los argumentos: https://stackoverflow.com/a/60355020
+    
+    //Fold expression con lambda
+    int val = 0;
+    ([id, val](auto x) mutable {
+            void* helper = &x;
+            if (typeid(x) == typeid(HANDLE)) {
+                cout << "\nid:" << id << " val:" << val << " x:" << helper;
+                valExp(CHECK_HANDLE, id, x);
+            } else if (is_pointer_v<decltype(x)>) {
+                cout << "\n2id:" << id << " val:" << val << " x:" << helper;
+                valExp(CHECK_BAD_PTR, id, x);
+            }
+            val+=1;
+        }(rest), 
+    ...);
 }
 
 template <typename FuncT, typename... ArgsT> //Para declarar templates que devuelven cualquier tipo usamos auto
