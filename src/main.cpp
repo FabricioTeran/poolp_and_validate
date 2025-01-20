@@ -68,27 +68,27 @@ ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression) {
 
     return expression;
 }
-
-template <typename... RestT>
-void validateArgs(const char* id, RestT... rest) {
+int iVal = 0;
+void validateArgs(const char* id) { return; } //Solo me faltaba el puto parametro id, la recursion de packs funciona
+template <typename FirstT, typename... RestT>
+void validateArgs(const char* id, FirstT first, RestT... rest) {
     //No podemos usar vectores porque no hay vectores que acepten diferentes tipos para sus elementos
     //Tampoco podemos usar tuplas porque no se pueden iterar en tiempo de ejecucion
     //void* vec[sizeof...(RestT)] = { &rest... }; Con esto perdemos los tipos de los argumentos: https://stackoverflow.com/a/60355020
     
-    //Fold expression con lambda
-    int val = 0;
-    ([id, val](auto x) mutable {
-            void* helper = &x;
-            if (typeid(x) == typeid(HANDLE)) {
-                cout << "\nid:" << id << " val:" << val << " x:" << helper;
-                valExp(CHECK_HANDLE, id, x);
-            } else if (is_pointer_v<decltype(x)>) {
-                cout << "\n2id:" << id << " val:" << val << " x:" << helper;
-                valExp(CHECK_BAD_PTR, id, x);
-            }
-            val+=1;
-        }(rest), 
-    ...);
+    void* helper = &first;
+    if (typeid(first) == typeid(HANDLE)) {
+        cout << "\nid:" << id << " x:" << helper << " count:" << iVal++;
+        valExp(CHECK_HANDLE, id, first);
+    }
+
+    /* No es codigo portable is_pointer_v
+    else if (is_pointer_v<>) { //Quizas al comparar FirstT siempre da verdadero
+        cout << "\n2id:" << id << " x:" << helper << " count:" << iVal++;
+        valExp(CHECK_BAD_PTR, id, first);
+    }*/
+
+    validateArgs(id, rest...);
 }
 
 template <typename FuncT, typename... ArgsT> //Para declarar templates que devuelven cualquier tipo usamos auto
