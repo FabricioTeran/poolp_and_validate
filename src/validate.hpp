@@ -68,10 +68,10 @@ ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression, string 
     else if (validateFunc == CHECK_HANDLE) {
         void* helper = &expression;
         HANDLE expressionValue = *(HANDLE*)helper;
-
         DWORD unused;
+        DWORD realLastError = GetLastError(); //Al llamar a GetHandleInformation, si falla estamos sobreescribiendo el anterior valor de GetLastError
         if (!GetHandleInformation(expressionValue, &unused)) {
-            cout << "\nInvalid Handler: " << expressionValue << "\nid: " << id << "\nGetLastError: " << std::dec << GetLastError() << errorInfo;
+            cout << "\nInvalid Handler: " << expressionValue << "\nid: " << id << "\nGetLastError: " << std::dec << realLastError << errorInfo;
             abort();
         }
     }
