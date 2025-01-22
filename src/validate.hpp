@@ -66,7 +66,14 @@ ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression, string 
         }
     }
     else if (validateFunc == CHECK_HANDLE) {
+        void* helper = &expression;
+        HANDLE expressionValue = *(HANDLE*)helper;
 
+        DWORD unused;
+        if (!GetHandleInformation(expressionValue, &unused)) {
+            cout << "\nInvalid Handler: " << expressionValue << "\nid: " << id << "\nGetLastError: " << std::dec << GetLastError() << errorInfo;
+            abort();
+        }
     }
 
     return expression;
@@ -111,7 +118,9 @@ FuncT valTemplate(VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate,
     return call;
 }
 
-
 #define valTemp(returnValidateFunc, skipArgValidate, id, func, ...) valTemplate(returnValidateFunc, skipArgValidate, id, func(__VA_ARGS__), __VA_ARGS__);
+
+//Para el futuro admitir funciones en vez de CHECK_HANDLE para que podamos definir en main.cpp funciones para validar tipos custom pero que no queremos agregar a la libreria
+//Pero por ahi ni necesitamos esta funcionalidad y nos es suficiente con los validadores que ya tenemos... Entonces solo implementarlo si es estrictamente necesario
 
 #endif
