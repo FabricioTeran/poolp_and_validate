@@ -5,6 +5,7 @@
 #include<type_traits>
 #include<phnt_windows.h>
 #include<phnt.h>
+#include<string>
 
 using namespace std;
 
@@ -39,12 +40,12 @@ enum VALIDATE_FUNC {
     NO_CHECK
 };
 template <class ArgT>
-ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression) {
+ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression, string errorInfo = "") {
     if (validateFunc == CHECK_FALSE_NULL) {
         void* helper = &expression; //expression se guarda en el parametro de la funcion, tomamos su ubicacion y luego casteamos esa ubicacion
         bool expressionValue = *(bool*)helper; //Convertimos de void* a bool* y luego hacemos *helper para obtener su valor
         if (!expressionValue) {        //Es la misma tecnica usada en hacking para castear estructuras en tiempo de ejecucion
-            cout << "\nFalse or Null Value: " << expressionValue << ", id: " << id << ", GetLastError: " << std::dec << GetLastError();
+            cout << "\nFalse or Null Value: " << expressionValue << "\nid: " << id << "\nGetLastError: " << std::dec << GetLastError() << errorInfo;
             abort();
         }
     }
@@ -52,7 +53,7 @@ ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression) {
         void* helper = &expression;
         NTSTATUS expressionValue = *(NTSTATUS*)helper;
         if (!NT_SUCCESS(expressionValue)) {
-            cout << "\nNTSTATUS: " << std::hex << expressionValue << ", id: " << id;
+            cout << "\nNTSTATUS: " << std::hex << expressionValue << "\nid: " << id << errorInfo;
             abort();
         }
     }
@@ -60,7 +61,7 @@ ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression) {
         void* helper = &expression; //&expression toma la direccion del parametro, no la ubicacion a la que apunta el puntero
         DWORD expressionValue = *(DWORD*)helper;
         if (BAD_PTR(expressionValue)) {     //Asi que debo usar *helper para referirme
-            cout << "\nBad-Pointer:" << expressionValue << ",  id:" << id << ",  GetLastError:" << std::dec << GetLastError(); //Usamos std::dec para convertir la DWORD de GetLastError en decimal, los errores documentados en msdn estan en decimal (y hexadecimal entre parentesis)
+            cout << "\nBad-Pointer: " << expressionValue << "\nid: " << id << "\nGetLastError: " << std::dec << GetLastError() << errorInfo; //Usamos std::dec para convertir la DWORD de GetLastError en decimal, los errores documentados en msdn estan en decimal (y hexadecimal entre parentesis)
             abort();
         }
     }
@@ -71,14 +72,12 @@ ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression) {
     return expression;
 }
 
-extern int iVal = 0;
-void validateArgs(const char* id) { return; } //Solo me faltaba el puto parametro id, la recursion de packs funciona
+void validateArgs(const char* id, int argCount) { return; } //Solo me faltaba el puto parametro id, la recursion de packs funciona
 template <typename FirstT, typename... RestT>
-void validateArgs(const char* id, FirstT first, RestT... rest) {
-    //Contabilizar el numero de parametro
+void validateArgs(const char* id, int argCount, FirstT first, RestT... rest) {
     if (typeid(first) == typeid(HANDLE)) {
-        cout << "\nid:" << id << " x:" << helper << " count:" << iVal++;
-        valExp(CHECK_HANDLE, id, first);
+        string errorInfo = "\nArgCount: " + to_string(argCount);
+        valExp(CHECK_HANDLE, id, first, errorInfo);
     }
 
     /* No es codigo portable is_pointer_v
@@ -87,25 +86,27 @@ void validateArgs(const char* id, FirstT first, RestT... rest) {
         valExp(CHECK_BAD_PTR, id, first);
     }*/
 
-    validateArgs(id, rest...);
+    validateArgs(id, argCount+1, rest...); //argCount contabiliza el numero de argumento en el pack variadic para informar al usuario en que argumento ocurrio el error de validacion
 }
 
 template <typename FuncT, typename... ArgsT> //Para declarar templates que devuelven cualquier tipo usamos auto
 auto val(VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, FuncT func, ArgsT... args) {
-    validateArgs(id, args...); //Falta implementar skipArgValidate
+    validateArgs(id, 0, args...); //Falta implementar skipArgValidate
 
     auto res = func(args...); //Con auto no podemos usar NULL, debemos usar el tipo correcto para los argumentos
 
-    valExp(returnValidateFunc, id, res);
+    string errorInfo = "\nThe result of the function has failed";
+    valExp(returnValidateFunc, id, res, errorInfo);
 
     return res;
 }
 
 template <class FuncT, class... ArgsT> //Si las funciones a validar son templates, es muy dificil crear una funcion template que acepte otros templates, ademas tendriamos que definir una nueva funcion para cada nuevo template usado, entonces es mejor llamar la funcion desde afuera y que esta funcion solo tome el resultado
 FuncT valTemplate(VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate, const char* id, FuncT call, ArgsT... args) {
-    validateArgs(id, args...); //Falta implementar skipArgValidate
+    validateArgs(id, 0, args...); //Falta implementar skipArgValidate
 
-    valExp(returnValidateFunc, id, call);
+    string errorInfo = "\nThe result of the function has failed";
+    valExp(returnValidateFunc, id, call, errorInfo);
 
     return call;
 }
