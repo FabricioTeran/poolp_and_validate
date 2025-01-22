@@ -42,22 +42,25 @@ template <class ArgT>
 ArgT valExp(VALIDATE_FUNC validateFunc, const char* id, ArgT expression) {
     if (validateFunc == CHECK_FALSE_NULL) {
         void* helper = &expression; //expression se guarda en el parametro de la funcion, tomamos su ubicacion y luego casteamos esa ubicacion
-        if (!(bool)helper) {        //Es la misma tecnica usada en hacking para castear estructuras en tiempo de ejecucion
-            cout << "\nFalse or Null Value: " << (bool)helper << ", id: " << id << ", GetLastError: " << std::dec << GetLastError();
+        bool expressionValue = *(bool*)helper; //Convertimos de void* a bool* y luego hacemos *helper para obtener su valor
+        if (!expressionValue) {        //Es la misma tecnica usada en hacking para castear estructuras en tiempo de ejecucion
+            cout << "\nFalse or Null Value: " << expressionValue << ", id: " << id << ", GetLastError: " << std::dec << GetLastError();
             abort();
         }
     }
     else if (validateFunc == CHECK_NTSTATUS) {
         void* helper = &expression;
-        if (!NT_SUCCESS(*(NTSTATUS*)helper)) {
-            cout << "\nNTSTATUS: " << (NTSTATUS)helper << ", id: " << id;
+        NTSTATUS expressionValue = *(NTSTATUS*)helper;
+        if (!NT_SUCCESS(expressionValue)) {
+            cout << "\nNTSTATUS: " << std::hex << expressionValue << ", id: " << id;
             abort();
         }
     }
     else if (validateFunc == CHECK_BAD_PTR) { //Parece que los punteros en mi maquina funcionan bien con DWORD, utilizar DWORD_PTR causaba que leyera mal los punteros
         void* helper = &expression; //&expression toma la direccion del parametro, no la ubicacion a la que apunta el puntero
-        if (BAD_PTR(*(DWORD*)helper)) {     //Asi que debo usar *helper para referirme
-            cout << "\nBad-Pointer:" << helper << ",  id:" << id << ",  GetLastError:" << std::dec << GetLastError(); //Usamos std::dec para convertir la DWORD de GetLastError en decimal, los errores documentados en msdn estan en decimal (y hexadecimal entre parentesis)
+        DWORD expressionValue = *(DWORD*)helper;
+        if (BAD_PTR(expressionValue)) {     //Asi que debo usar *helper para referirme
+            cout << "\nBad-Pointer:" << expressionValue << ",  id:" << id << ",  GetLastError:" << std::dec << GetLastError(); //Usamos std::dec para convertir la DWORD de GetLastError en decimal, los errores documentados en msdn estan en decimal (y hexadecimal entre parentesis)
             abort();
         }
     }
