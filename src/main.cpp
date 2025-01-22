@@ -3,7 +3,7 @@
 #include<phnt.h>
 #include<iostream>
 #include<vector>
-#include"oldValidate.hpp"
+#include"validate.hpp"
 #pragma comment(lib, "ntdll")
 
 using namespace std;
