@@ -4,6 +4,7 @@
 #include<iostream>
 #include<vector>
 #include"validate.hpp"
+#include<TlHelp32.h>
 #pragma comment(lib, "ntdll")
 
 using namespace std;
@@ -36,7 +37,7 @@ HANDLE hijackProcessHandle(wstring wsObjectType, HANDLE hTarget, DWORD dwDesired
 
     for (auto i = 0; i < pProcessHandleInfo->NumberOfHandles; i++) {   //Se ejecuta mientras el iterador sea menor que el numero de handles del proceso
         HANDLE hDuplicatedObj;
-        BOOL res = val(CHECK_FALSE_NULL,"","2",   DuplicateHandle,hTarget,pProcessHandleInfo->Handles[i].HandleValue,GetCurrentProcess(),&hDuplicatedObj,dwDesiredAccess,FALSE,NULL);      //RAISE_FALSE_NULL(res, "2") //Funcion nativa para dupicar handles. Le pasa el handle del proceso a copiarle. Le pasa el handle value del handle a copiar. Le pasa el handle del proceso actual. Le pasa el nivel de acceso y los ultimos dos parametros FALSE y NULL
+        val(CHECK_FALSE_NULL,"","2",   DuplicateHandle,hTarget,pProcessHandleInfo->Handles[i].HandleValue,GetCurrentProcess(),&hDuplicatedObj,dwDesiredAccess,FALSE,NULL);      //RAISE_FALSE_NULL(res, "2") //Funcion nativa para dupicar handles. Le pasa el handle del proceso a copiarle. Le pasa el handle value del handle a copiar. Le pasa el handle del proceso actual. Le pasa el nivel de acceso y los ultimos dos parametros FALSE y NULL
 
         vector<BYTE> pObjectInfo = valTemp(NO_CHECK,"","7",   queryInfo,hDuplicatedObj,NtQueryObject,ObjectTypeInformation); //Recupera informacion del handle recien copiado
         auto pObjectTypeInfo = valExp(CHECK_BAD_PTR,"7.5",    (PPUBLIC_OBJECT_TYPE_INFORMATION)(pObjectInfo.data()));      //BAD_PTR(pObjectTypeInfo, "7");  //Accede a los datos crudos del handle recien copiado
@@ -55,28 +56,50 @@ HANDLE hijackProcessHandle(wstring wsObjectType, HANDLE hTarget, DWORD dwDesired
 void setCurrentProcessPrivilege(LPCSTR privilegeStr) {
     HANDLE hToken;
     HANDLE hCurrentProcess = GetCurrentProcess(); //Obtiene un psudohandle, es una ubicacion invalida FFFFFFFF, pero aun asi podemos usar este handle con otras funciones... No debemos validar con BAD_PTR por obvias razones
-    BOOL res = val(CHECK_FALSE_NULL,"","10",   OpenProcessToken, hCurrentProcess, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken);      //RAISE_FALSE_NULL(res, "10");
+    val(CHECK_FALSE_NULL,"","10",   OpenProcessToken, hCurrentProcess, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken);      //RAISE_FALSE_NULL(res, "10");
 
     LUID luid;
-    res = val(CHECK_FALSE_NULL,"","11",   LookupPrivilegeValueA, "", privilegeStr, &luid);     //RAISE_FALSE_NULL(res, "11")
+    val(CHECK_FALSE_NULL,"","11",   LookupPrivilegeValueA, "", privilegeStr, &luid);     //RAISE_FALSE_NULL(res, "11")
 
     TOKEN_PRIVILEGES tokenPriv = { 0 };
     tokenPriv.PrivilegeCount = 1;
     tokenPriv.Privileges[0].Luid = luid;
     tokenPriv.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED; //SE_PRIVILEGE_REMOVE elimina el privilegio, este lo habilita
 
-    res = val(CHECK_FALSE_NULL,"","12",   AdjustTokenPrivileges, hToken, FALSE, &tokenPriv, 0, nullptr, nullptr);      //RAISE_FALSE_NULL(res, "12")
+    val(CHECK_FALSE_NULL,"","12",   AdjustTokenPrivileges, hToken, FALSE, &tokenPriv, 0, nullptr, nullptr);      //RAISE_FALSE_NULL(res, "12")
+}
+
+vector<DWORD> getPidFromExe(const WCHAR exeName[260]) { //La app de chrome tiene el nombre "chrome.exe"
+    vector<DWORD> result;
+
+    HANDLE hSnapshot = val(CHECK_HANDLE,"","15",   CreateToolhelp32Snapshot, TH32CS_SNAPPROCESS, 0);
+    
+    PROCESSENTRY32 entry;
+    entry.dwSize = sizeof(PROCESSENTRY32);
+    val(CHECK_FALSE_NULL,"","16",   Process32First, hSnapshot, &entry);
+
+    do {
+        if (!wcscmp(entry.szExeFile, exeName)) { //Al comparar arreglos wchar estamos comparando sus direcciones, no las cadenas
+            result.push_back(entry.th32ProcessID);
+        }
+    } while ( val(NO_CHECK,"","17",   Process32Next, hSnapshot, &entry) ); //No checkeamos porque Process32Next retorna false cuando ya no tiene mas elementos siguientes
+
+    return result;
 }
 
 int main() {
     setCurrentProcessPrivilege("SeDebugPrivilege"); //Solo en algunos pocos programas podemos robar sus handlers sin ser admin
     cout << "\nsetCurrentProcessPrivilege(): Exitoso";
+
+    vector<DWORD> chromePids = getPidFromExe(L"chrome.exe"); //cout << "\nThe size is: " << chromePids.size();
+    for (auto const& c : chromePids)
+        std::cout << "\n" << c;
     
 	DWORD targetPid = 13308; //Pedir al usuario escribir un pid y verificar si el pid existe
     HANDLE hTarget = val(CHECK_HANDLE,"","13",   OpenProcess, PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_DUP_HANDLE | PROCESS_QUERY_INFORMATION, FALSE, targetPid);      //Eliminamos la comprobacion del handle resultado... Talvez los handles no contienen direcciones validas y solo se usan como IDs para pasar a las funciones de la winapi
 	
     HANDLE hProp = val(CHECK_HANDLE,"","14",   hijackProcessHandle, wstring(L"TpWorkerFactory"), hTarget, WORKER_FACTORY_ALL_ACCESS);
-    cout << "\nThe final hijacked handler address: " << hProp;
+    cout << "\nThe final target address: " << hProp;
 
     system("pause");
 

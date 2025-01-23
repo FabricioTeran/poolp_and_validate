@@ -120,6 +120,9 @@ FuncT valTemplate(VALIDATE_FUNC returnValidateFunc, const char* skipArgValidate,
 
 #define valTemp(returnValidateFunc, skipArgValidate, id, func, ...) valTemplate(returnValidateFunc, skipArgValidate, id, func(__VA_ARGS__), __VA_ARGS__);
 
+//Cambiar valExp para que acepte otra funcion en vez de abort(), por ej fail(&bool) que acepta un puntero a bool y lo establece en false cuando se llama, para asi saber si valExp fallo
+//Y de ahi solo creamos valTry y valTempTry que llamen a valExp con esta funcion fail
+
 //Para el futuro admitir funciones en vez de CHECK_HANDLE para que podamos definir en main.cpp funciones para validar tipos custom pero que no queremos agregar a la libreria
 //Pero por ahi ni necesitamos esta funcionalidad y nos es suficiente con los validadores que ya tenemos... Entonces solo implementarlo si es estrictamente necesario
 
