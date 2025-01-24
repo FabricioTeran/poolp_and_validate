@@ -33,17 +33,6 @@ bool BAD_PTR(TReturn ptr) {
     return false;
 }
 
-typedef void (*ErrorHandlingFunc)(string, bool*);
-void ErrorAbort(string message, bool* ignoredArg) {
-    cout << message;
-    abort();
-    return;
-}
-void ErrorBool(string message, bool* flag) {
-    cout << message;
-    *flag = false;
-    return;
-}
 enum VALIDATE_FUNC {
     CHECK_FALSE_NULL,
     CHECK_NTSTATUS,
@@ -51,7 +40,23 @@ enum VALIDATE_FUNC {
     CHECK_HANDLE,
     NO_CHECK
 };
-//Definir una struct con validateFunc, id, errorFunc, checkError, extraInfo... Y una funcion para construir uno
+
+typedef void (*ErrorHandlingFunc)(string, bool*);
+void ErrorAbort(string message, bool* ignoredArg) {
+    cout << message;
+    abort();
+    return;
+}
+void ErrorCout(string message, bool* ignoredArg) {
+    cout << message;
+    return;
+}
+void ErrorBool(string message, bool* checkError) {
+    cout << message;
+    *checkError = false;
+    return;
+}
+
 typedef struct INFO_T {
     VALIDATE_FUNC validateFunc;
     const char* id;
@@ -60,14 +65,11 @@ typedef struct INFO_T {
     bool* checkError;
     string extraErrorInfo;
 };
-
-//Crear una struct global para configurar la errorFunc default y asi poder definir la funcion que nosotros queramos como default en todo nuestro programa
 ErrorHandlingFunc defaultErrorFunc = ErrorAbort;
 void validateSet(ErrorHandlingFunc defaultFunc) {
     defaultErrorFunc = defaultFunc;
     return;
 }
-
 INFO_T* info(VALIDATE_FUNC validateFunc, const char* id, const char* skipArgValidate = "", ErrorHandlingFunc errorFunc = defaultErrorFunc, bool* checkError = nullptr) {
     INFO_T* newInfo = new INFO_T; //El bad alloc error se soluciono con esto, porque al crear variables en funciones, al salir se libera la memoria
                                  //No debemos usar static, porque siempre se usara la misma estructura, no creara nuevas
