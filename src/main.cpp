@@ -103,8 +103,8 @@ int main() {
     int i = 0;
     for (; checkError == false && i < chromePids.size(); i++) {
         checkError = true;                                                   //Lo establecemos en true, tiene que sobrevivir el true hasta la siguiente iteracion... Si el true no es sobreescrito por el valExp de abajo, quiere decir que no se produjo error
-        hTarget = val(info(NO_CHECK, "13", "", ErrorCout), OpenProcess, PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_DUP_HANDLE | PROCESS_QUERY_INFORMATION, FALSE, chromePids[i]);      //Eliminamos la comprobacion del handle resultado... Talvez los handles no contienen direcciones validas y solo se usan como IDs para pasar a las funciones de la winapi
-        valExp(info(CHECK_HANDLE,"13.5","",ErrorBool,&checkError), hTarget); //Si falla, checkError se establece en false
+        hTarget = val(info(CHECK_HANDLE,"13","",ErrorCout),   OpenProcess, PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_VM_OPERATION | PROCESS_DUP_HANDLE | PROCESS_QUERY_INFORMATION, FALSE, chromePids[i]);      //Eliminamos la comprobacion del handle resultado... Talvez los handles no contienen direcciones validas y solo se usan como IDs para pasar a las funciones de la winapi
+        valExp(info(CHECK_HANDLE,"13.5","",ErrorBool,&checkError),    hTarget); //Si falla, checkError se establece en false
     }
     if (checkError == true) {  //Solo puede ser true si sobrevivio y salio del bucle
         cout << "\nPid funcional: " << chromePids[i];
