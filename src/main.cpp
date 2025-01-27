@@ -116,3 +116,11 @@ int main() {
     system("pause");
 
 }
+
+//Para ofuscar las cadenas puedo separarlas y enviarlas como parametros separados a una funcion la cual va a reconstruir las cadenas originales
+//Puedo usar algun caracter aleatorio seguido de barra baja, y esto sera eliminado por la funcion y luego juntada todas las cadenas en una sola
+//Hago esto para aun poder ver las cadenas desde el codigo fuente y para que los antivirus no detecten ofuscacion
+//"chrome.exe" == "r_chro" "f_me" "w_.exe"
+//Tambien puedo hacer que esos artefactos sean agregados por una macro como
+//#define ofus(a1, a2, a3) ofusAlgo1(a1 + "___from___" + a3 + "___to___" a2 + "___again___")
+//ofus("chro","me",".exe")
