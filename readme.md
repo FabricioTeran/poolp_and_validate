@@ -20,4 +20,3 @@ A global overview of the code, for in detail explanation of the code see documen
 - Windows SDK for some headers like: TlHelp32.h and the headers that phnt.h and phnt_windows.h include by themselves *(Windows SDk is installed by default when installing Visual Studio, VS is the easiest way to get a ready-to-use environment)*
 ## Usage
 - Just open de .exe file with admin rights, on errors you should see an output like this with important information:
-![Image](../tree/main/img/Capture1.png)
