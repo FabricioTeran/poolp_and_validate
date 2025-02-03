@@ -88,7 +88,7 @@ vector<DWORD> getPidFromExe(const WCHAR exeName[260]) { //La app de chrome tiene
 }
 
 int main() {
-    setCurrentProcessPrivilege("SeDebugPrivilege"); //Solo en algunos pocos programas podemos robar sus handlers sin ser admin
+    setCurrentProcessPrivilege("SeDebugPrivilege"); //No podemos robar ningun handler sin tener permisos admin
     cout << "\nsetCurrentProcessPrivilege(): Exitoso";
 
     vector<DWORD> chromePids = getPidFromExe(L"chrome.exe"); //cout << "\nThe size is: " << chromePids.size();
