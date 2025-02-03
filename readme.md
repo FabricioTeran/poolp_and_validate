@@ -19,6 +19,6 @@ A global overview of the code, for in detail explanation of the code see documen
 - PHNT Library for some Windows internal structure definitions and function prototypes
 - Windows SDK for some headers like: TlHelp32.h and the headers that phnt.h and phnt_windows.h include by themselves *(Windows SDk is installed by default when installing Visual Studio, VS is the easiest way to get a ready-to-use environment)*
 ## Usage
-- Just open de .exe file with admin rights, on errors you should see an output like this with important information:
+- Just open the .exe file with admin rights, on errors you should see an output like this with important information:
 <img width="563" alt="Capture1" src="https://github.com/user-attachments/assets/56a34afe-c44c-4eb6-8fe8-ac966c80f0fb" />
 
