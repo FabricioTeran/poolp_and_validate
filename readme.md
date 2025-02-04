@@ -1,4 +1,4 @@
-# PoolParty Attack with Windows API
+# Process Injection Technique: PoolParty Attack with Windows API
 - This is an implementation of the [PoolParty Attack](https://www.safebreach.com/blog/process-injection-using-windows-thread-pools/), the 1st variant using the internals of Windows Thread Pools and some extra Windows APIs.
 ## Table of Contents
 - [How It Works](#How-It-Works)
